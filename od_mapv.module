@@ -1,0 +1,440 @@
+<?php
+
+define("OD_MAPV_DEFAULT_DISPLAY_FILTER", TRUE, TRUE);
+define("OD_MAPV_DEFAULT_DISPLAY_CONTENT", TRUE, TRUE);
+define("OD_MAPV_DEFAULT_DISPLAY_WIDTH", 384, TRUE);
+define("OD_MAPV_DEFAULT_DISPLAY_HEIGHT", 683, TRUE);
+define("OD_MAPV_DEFAULT_LINK_PATH", 'od_mapv', TRUE);
+define("OD_MAPV_DEFAULT_FILE_PATH", drupal_get_path('module', 'od_mapv') .'/res/db.csv', TRUE);
+
+/**
+ * Implementation of hook_menu().
+ */
+function od_mapv_menu() {
+  $items['admin/settings/od_mapv'] = array(
+    'title' => 'OD Map Visualization',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('od_mapv_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'od_mapv.admin.inc',
+  );
+  if ($path = variable_get('od_mapv_link_path', OD_MAPV_DEFAULT_LINK_PATH)) {
+    $items[$path] = array(
+      'title' => t(variable_get('od_mapv_display_title', 'Thailand map visualization')),
+      'page callback' => 'od_mapv_display',
+      'access arguments' => array('access content'),
+      'type' => MENU_CALLBACK,
+    );
+  }
+  $items['od_mapv/data'] = array(
+    'title' => 'JSON data',
+    'page callback' => 'od_mapv_data',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['od_mapv/test'] = array(
+    'title' => 'test',
+    'page callback' => 'od_mapv_test',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function od_mapv_theme() {
+  return array(
+    'od_mapv_item' => array(
+      'arguments' => array('name' => NULL, 'province' => NULL, 'contact' => NULL, 'details' => NULL),
+      'template' => 'od-mapv-item',
+    ),
+  );
+}
+
+/** 
+ * Implementation of hook_theme_registry_alter().
+ */
+function od_mapv_theme_registry_alter(&$theme_registry) {
+  if (isset($theme_registry['page'])) {
+    if ($key = array_search('od_mapv_preprocess_page', $theme_registry['page']['preprocess functions'])) {
+      unset($theme_registry['page'][$key]);
+    }
+    $theme_registry['page']['preprocess functions'][] = 'od_mapv_preprocess_page';
+  }
+}
+
+/**
+ * Implementation of moduleName_preprocess_page().
+ */
+function od_mapv_preprocess_page(&$vars) {
+  if (!empty($vars['scripts']) && $_GET['q'] == variable_get('od_mapv_link_path', OD_MAPV_DEFAULT_LINK_PATH)) {
+    $scripts = drupal_add_js();
+    $jquery_path = drupal_get_path('module', 'od_mapv') .'/js/jquery.min.js';
+    $new_jquery = array($jquery_path => $scripts['core']['misc/jquery.js']);
+    $scripts['core'] = array_merge($new_jquery, $scripts['core']);
+    unset($scripts['core']['misc/jquery.js']);
+    $vars['scripts'] = drupal_get_js('header', $scripts);
+  }
+}
+
+/**
+ * Display map visualization.
+ */
+function od_mapv_display() {
+  return _od_mapv_get_map();
+}
+
+function od_mapv_is_allow($name) {
+  return TRUE;
+}
+
+/**
+ * JSON data.
+ */
+function od_mapv_data() {
+  $filepath = variable_get('od_mapv_file_path', OD_MAPV_DEFAULT_FILE_PATH);
+  $type = variable_get('od_mapv_type', '');
+  // File not found.
+  if (!$type && !file_exists($filepath)) {
+    return;
+  }
+
+  $data = array();
+  $regions = array();
+  $current_region = '';
+  $current_province = '';
+  $row = 0;
+  $number_of_temples = 0;
+
+  if ($type) {
+    $rs = db_query("SELECT nid FROM {node} WHERE type = '%s'", $type);
+    while($n = db_fetch_object($rs)) {
+      $has_data = TRUE;
+      $node = array();
+      $node = node_load($n->nid);
+      foreach ($node->taxonomy as $tid => $term) {
+        if(od_mapv_is_allow($term->name)) {
+          $reg = array_pop(taxonomy_get_parents($term->tid));
+          if (!empty($reg)) {
+            $regions[$reg->name][$term->name] = $term->name;
+            $node = node_build_content($node);
+            //node_invoke_nodeapi($node, 'alter');
+            //$node->content['body']['#value'] = $node->body;
+            $data[$reg->name][$term->name][] = array(
+              'region' => $reg->name,
+              'province' => $term->name,
+              'name' => $node->title,
+              'detail1' => od_mapv_nodeview($node),
+              'contact' => '',
+            );
+            $number_of_temples++;
+            $row++;
+            break;
+          }
+        }
+      }
+    }
+  }
+  else {
+    if (($handle = fopen($filepath, "r")) !== FALSE) {
+      // Read line.
+      while (($columns = fgetcsv($handle, filesize($filepath), ",")) !== FALSE) {
+        $has_data = TRUE;
+        foreach ($columns as $idx => $col) {
+          // Detect row which is a region.
+          if ($idx == 0 && $col != '') {
+            $current_region = trim($col);
+            $has_data = FALSE;
+            $regions[$current_region] = array();
+            break;
+          }   
+          // Detect row which is a province.
+          elseif ($idx == 1 && $col != '') {
+            $current_province = trim($col);
+            $regions[$current_region][$current_province] = $current_province;
+            break;
+          }   
+        }
+        // Collect data.
+        if ($has_data) {
+          $data[$current_region][$current_province][] = array(
+            'region' => $current_region,
+            'province' => $current_province,
+            'name' => trim($columns[2]),
+            'detail1' => trim($columns[3]),
+            'detail2' => trim($columns[4]),
+            'detail3' => trim($columns[5]),
+            'contact' => trim($columns[6]),
+          );
+          $number_of_temples++;
+        }
+
+        $row++;
+      }
+      fclose($handle);
+    }
+  }
+  
+  // Generate output.
+  $output = '';
+  switch ($_GET['type']) {
+    case 'map':
+      $map = array();
+      foreach ($data as $region => $provinces) {
+        foreach ($provinces as $province => $temples) {
+          $map[$region][$province] = array(
+            'count' => count($temples),
+            'percent' => (count($temples) / $number_of_temples) * 100,
+          );
+        }
+      }
+      print json_encode($map);
+    break;
+    case 'result':
+      // Filter regions & province.
+      $temples = array();
+      // Filter regions.
+      if ($_GET['region'] != '') {
+        // Filter province.
+        if ($_GET['province'] != '' && $_GET['province'] != 'null') {
+          $temples = $data[$_GET['region']][$_GET['province']];
+        }
+        else {
+          foreach ($data[$_GET['region']] as $province => $_temples) {
+            $temples = array_merge($temples, $_temples);
+          }
+        }
+      }
+      // No filter.
+      else {
+        foreach ($data as $region => $provinces) {
+          foreach ($provinces as $_temples) {
+            foreach ($_temples as $temple) {
+              $temples[] = $temple;
+            }
+          }
+        }
+      }
+
+      // Search text
+      if ($_GET['text'] != '') {
+        $found = array();
+        foreach ($temples as $temple) {
+          foreach ($temple as $string) {
+            if (strpos($string, $_GET['text']) !== FALSE) {
+              $found[] = $temple;
+              break;
+            }
+          }
+        }
+        $temples = $found;
+      }
+
+      // Paging.
+      $page = isset($_GET['page']) ? $_GET['page'] : 1;
+      $pagesize = isset($_GET['pagesize']) ? $_GET['pagesize'] : 20;
+      $numrow = count($temples);
+      $start = ($page - 1) * $pagesize;
+      $totalpage = ceil($numrow / $pagesize);
+
+      // Generate result.
+      $result = '<div class="items-wrapper">';
+      if ($_GET['region'] != '' || ($_GET['province'] != '' && $_GET['province'] != 'null') || $_GET['text'] != '') {
+        $result_text = variable_get('od_mapv_text_result', 'Result in !search found !number');
+        $result = '<div class="result-text">';
+        $search_text .= $_GET['region'] != '' ? ' <strong>"'. $_GET['region'] .'"</strong>' : '';
+        $search_text .= ($_GET['province'] != '' && $_GET['province'] != 'null') ? ' <strong>"'. $_GET['province'] .'"</strong>' : '';
+        $search_text .= $_GET['text'] != '' ? ' <strong>"'. $_GET['text'] .'"</strong>' : '';
+        $result .= strtr($result_text, array('!search' => $search_text,'!number' => count($temples)));
+        $result .= '</div>';
+      }
+
+      $temples = array_slice($temples, $start, $pagesize);
+      if (count($temples) > 0) {
+        foreach ($temples as $temple) {
+          $name = array('value' => $temple['name']);
+          $province = array('value' => $temple['province'], 'prefix' => 'จ. ');
+          $contact = array('value' => $temple['contact'], 'prefix' => 'ติดต่อ ');
+          $details = array();
+          foreach ($temple as $key => $value) {
+            if (substr($key, 0, 6) == 'detail') {
+              $details[] = array('value' => $value);
+            }
+          }
+          $result .= theme('od_mapv_item', $name, $province, $contact, $details);
+          /*$result .= '<div class="result-item">';
+          // Display items.
+          $result .= '<div class="item-rows">';
+          // Fields.
+          $result .= '<div class="column column-1">';
+          $result .= '<div class="temple-name field">'. $temple['name'] .'</div>';
+          $result .= '</div>';
+          $result .= '<div class="column column-2">';
+          $result .= '<div class="temple-province field">จ.'. $temple['province'] .'</div>';
+          $result .= '<div class="temple-contact field">ติดต่อ '. $temple['contact'] .'</div>';
+          $result .= '</div>';
+          // More button.
+          $result .= '<div class="column column-3">';
+          $result .= '<div class="temple-more field arrow-right"></div>';
+          $result .= '</div>';
+          $result .= '</div>';
+          // More detail.
+          $result .= '<div class="more-detail">';
+          $result .= '<div class="detail-address detail"><div class="label">ที่อยู่</div><div class="content">'. str_replace('ที่อยู่', '', $temple['address']) .'</div></div>';
+          $result .= '<div class="detail-activity detail"><div class="label">กิจกรรม</div><div class="content">'. $temple['activities'] .'</div></div>';
+          $result .= '<div class="detail-abbot detail"><div class="label">เจ้าอาวาส</div><div class="content">'. $temple['abbot'] .'</div></div>';
+          $result .= '</div>';
+
+          $result .= '</div>';*/
+        }
+      }
+      else {
+        $result .= '<div class="result-not-found">'. t('Not found') .'</div>';
+      }
+      $result .= '<div class="clear"></div>';
+      $result .= '</div>';
+
+      // Generate pager.
+
+      if (count($temples) > 0) {
+        $padding = 3;
+        $pager = '<li>'. t('Page') .': </li>';
+        if ($page > 1) {
+          $pager .= '<li class="first"><a href="1">'. t('First') .'</a></li>';
+          $pager .= '<li class="previous"><a href="'. ($page-1) .'">'. t('Previous') .'</li>';
+        }
+        // Padding left
+        for ($i = $page - $padding; $i <= $page ; $i++) {
+          if ($i > 0 && $i != $page) $pager .= '<li><a href="'. $i .'">'. $i .'</a></li>';
+        }
+        // Current page
+        $pager .= '<li class="active">'. $page .'</li>';
+        // Padding right
+        for ($i = $page + 1; $i <= $page + $padding ; $i++) {
+          if ($i <= $totalpage) $pager .= '<li><a href="'. $i .'">'. $i .'</a></li>';
+        }
+
+        if ($page < $totalpage) {
+          $pager .= '<li class="next"><a href="'. ($page+1) .'">'. t('Next') .'</a></li>';
+          $pager .= '<li class="last"><a href="'. $totalpage .'">'. t('Last') .'</a></li>';
+        }
+        $pager .= '<li class="loading">'. theme('image', drupal_get_path('module', 'od_mapv') .'/img/loader.gif') .'</li>';
+      }
+      // Combine data.
+      $json = array(
+        'result' => $result,
+        'pager' => $pager,
+      );
+
+      print json_encode($json);
+
+    break;
+    case 'regions':
+      print json_encode($regions);
+    break;
+    default:
+      print json_encode($data);
+    break;
+  }
+}
+
+/**
+ * Test.
+ */
+function od_mapv_test() {
+  return _od_mapv_get_map();
+}
+
+/**
+ * Return HTML map structure depend on browser.
+ */
+function _od_mapv_get_map() {
+  $mpath = drupal_get_path('module', 'od_mapv');
+  drupal_add_js($mpath .'/js/jquery.svg.package/jquery.svg.js');
+  drupal_add_js($mpath .'/js/jquery.svg.package/jquery.svganim.js');
+  drupal_add_js($mpath .'/js/jquery.svg.package/jquery.svgdom.js');
+  drupal_add_js($mpath .'/js/jquery.svg.package/jquery.svgfilter.js');
+  drupal_add_js($mpath .'/js/jquery.svg.package/jquery.svggraph.js');
+  drupal_add_js($mpath .'/js/jquery.svg.package/jquery.svgplot.js');
+  drupal_add_js($mpath .'/js/loader.js');
+  drupal_add_js($mpath .'/js/build.js');
+  $settings = array(
+    'od_mapv' => array(
+      'path' => base_path() . $mpath,
+      'tooltip' => variable_get('od_mapv_text_tooltp', ''),
+    ),
+  );
+  drupal_add_js($settings, 'setting');
+  drupal_add_css($mpath .'/css/od_mapv.css');
+  // Filter.
+  if (variable_get('od_mapv_display_filter', OD_MAPV_DEFAULT_DISPLAY_FILTER)) {
+    $output = '<div id="od_mapv_filter">
+      <h3>'. $title .'</h3>
+      <form onsubmit="return false;">
+        <label>'. t('Region') .'</label>
+        <select id="od_mapv_region"><option value="">'. t('All') .'</option></select>
+        <label class="label_province">'. t('Province') .'</label>
+        <select id="od_mapv_province"><option value="" class="all">'. t('All') .'</option></select>
+        <input type="text" id="od_mapv_search" value="" />
+        <input type="submit" id="od_mapv_submit" value="'. t('Search') .'" />
+        <span id="od_mapv_loading"><img src="'. base_path() . $mpath .'/img/loader.gif'. '" alt="'. t('Loading') .'" /></span>
+      </form>
+    </div>';
+  }
+  // Map.
+  if (strpos($_SERVER['HTTP_USER_AGENT'], 'MSIE') !== FALSE) {
+    $rand = rand(1, 199) / 100;
+    $map_filepath = $mpath .'/res/map.swf?'. $rand;
+    $width = variable_get('od_mapv_display_width', OD_MAPV_DEFAULT_DISPLAY_WIDTH);
+    $height = variable_get('od_mapv_display_height', OD_MAPV_DEFAULT_DISPLAY_HEIGHT);
+    $output .= '<object id="od_mapv_map" type="application/x-shockwave-flash" data="'. $map_filepath .'" width="'. $width .'" height="'. $height .'"><param name="movie" value="'. $map_filepath .'" /><param name="wmode" value="transparent" /></object>';
+  }
+  else {
+    $output .= '<div id="od_mapv_map-wrapper">';
+    $output .= '<div id="od_mapv_map" style="width: '. $width .'px; height: '. $height .'px;"></div>';
+    $output .= '<div id="od_mapv_map-tooltip"><span class="province"></span> <span class="count"></span></div>';
+    $output .= '</div>';
+  }
+  // Result.
+  $output .= '<div class="right">';
+  $output .= '<div id="od_mapv_result"></div>';
+  $output .= '<ul id="od_mapv_pager"></ul>';
+  $output .= '<div class="clear"></div>';
+  $output .= '</div>';
+  return $output;
+}
+
+function dm($msg) {
+  drupal_set_message((is_object($msg) || is_array($msg)) ? '<pre>'. print_r($msg, 1) .'</pre>' : $msg);
+}
+
+function od_mapv_nodeview($node, $teaser = FALSE, $page = FALSE, $links = TRUE) {
+  $node = (object) $node;
+
+  $node = node_build_content($node, $teaser, $page);
+
+  if ($links) {
+    $node->links = module_invoke_all('link', 'node', $node, $teaser);
+    drupal_alter('link', $node->links, $node);
+  }
+
+  // Set the proper node part, then unset unused $node part so that a bad
+  // theme can not open a security hole.
+  $content = drupal_render($node->content);
+  if ($teaser) {
+    $node->teaser = $content;
+    unset($node->body);
+  }
+  else {
+    $node->body = $content;
+    unset($node->teaser);
+  }
+
+  // Allow modules to modify the fully-built node.
+  node_invoke_nodeapi($node, 'alter', $teaser, $page);
+
+  return $node->body; 
+}

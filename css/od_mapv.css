@@ -1,0 +1,244 @@
+.clear {
+  clear: both;
+}
+
+#od_mapv_province {
+  display: none;
+}
+
+#od_mapv_map {
+  width: 384px;
+  height: 682px;
+  margin: 0 0 20px;
+}
+
+#od_mapv_map-wrapper {
+  float: left;
+  width: 400px;
+  position: relative;
+}
+
+#od_mapv_map-tooltip {
+  position: absolute;
+  right: 10px;
+  top: 15px;
+  background: #EFEFEF;
+  -moz-border-radius: 5px;
+  padding: 5px 10px;
+  display: none;
+  margin-right: 10px;
+}
+
+#od_mapv_map-tooltip .province {
+  font-size: 16px;
+}
+
+#od_mapv_map-tooltip .count {
+  font-size: 18px;
+  color: #e95800;
+}
+
+/* Result */
+
+#od_mapv_result {
+  margin-top: 15px;
+}
+.label_province {display: none}
+/*#result,
+.items-wrapper {
+  clear: both;
+}*/
+#od_mapv_filter {margin: 0 0 10px; float: right}
+#od_mapv_result .item-rows {
+  float: left;
+  background: #f3f3ef;
+}
+
+#od_mapv_result .result-item {
+  background: #E8E8DE;
+  margin-bottom: 3px;
+  float: left;
+  cursor: hand; /* For IE */
+  cursor: pointer; 
+}
+
+#od_mapv_result .column {
+  float: left;
+}
+
+#od_mapv_result .column-1 {
+  width: 280px;
+  /*height: 70px;
+  line-height: 70px;*/
+  margin-top: 15px;
+  padding: 0 0 0 20px;
+}
+
+#od_mapv_result .column-2 {
+  margin-top: 10px;
+  width: 185px;
+  height: 60px;
+  text-align: right;
+  padding-right: 20px;
+}
+
+#od_mapv_result .column-3 {
+  width: 24px;
+  height: 70px;
+  background: #E8E8DE;
+}
+
+#od_mapv_result .temple-name {
+  font-size: 18px;
+  margin-left: 10px;
+  color: #e95800;
+}
+
+#od_mapv_result .temple-province,
+#od_mapv_result .temple-contact {
+  height: 30px;
+}
+
+#od_mapv_result .temple-more {
+  height: 70px;
+  cursor: pointer;
+}
+
+#od_mapv_result .more-detail {
+  padding: 10px;
+  display: none;
+  clear: both;
+}
+
+#od_mapv_result .more-detail .content {background: none;}
+
+#od_mapv_result .more-detail .label {
+  font-weight: bold;
+  font-size: 15px;
+  color: green
+}
+
+#od_mapv_result .more-detail .detail {
+  margin-bottom: 10px;
+}
+
+#od_mapv_result .arrow-right {
+  background: url(../img/arrow-right.png) no-repeat;
+}
+
+#od_mapv_result .arrow-down {
+  background: url(../img/arrow-down.png) no-repeat;
+}
+
+.result-text {
+  padding-bottom: 15px;
+  font-size: 17px;
+}
+
+body.north strong {color: #00B5F4;}
+body.northeast strong {color: #AE42BA}
+body.central strong {color: #3DB52C}
+body.south strong {color: #E0663B}
+
+#od_mapv_map-wrapper .north  {background: #95e7fd; }
+#od_mapv_map-wrapper .northeast {background: #e4bbe7; }
+#od_mapv_map-wrapper .central {background: #97e690; }
+#od_mapv_map-wrapper .south {background: #f89475;}
+
+#od_mapv_pager {
+  margin: 10px auto;
+  overflow: hidden
+}
+
+#od_mapv_pager li {
+  float: left;
+  list-style: none;
+  padding:1px 3px 2px;
+}
+
+#od_mapv_pager li.active {
+  color: #333333;
+  background: #bbbba4;
+  padding:1px 5px 2px;
+  font-weight: bold;
+  margin: 0 2px;
+}
+
+#od_mapv_pager li a {
+  color: #333333;
+  text-decoration: none;
+}
+#od_mapv_pager li a:hover {
+  text-decoration: underline;
+}
+
+#od_mapv_pager li.next {
+  background: url("../img/pager-right.png") no-repeat scroll 6px 3px transparent;
+  width: 14px;
+  height: 18px;
+}
+
+#od_mapv_pager li.last {
+  background: url("../img/pager-right.png") no-repeat scroll -19px 3px transparent;
+  width: 14px;
+  height: 18px;
+  margin: 0 5px
+}
+
+#od_mapv_pager li.first {
+  background: url("../img/pager-left.png") no-repeat scroll 0px 3px transparent;
+  width: 14px;
+  height: 18px;
+}
+
+#od_mapv_pager li.previous {
+  background: url("../img/pager-left.png") no-repeat scroll -22px 3px transparent;
+  width: 14px;
+  height: 18px;
+}
+
+#od_mapv_pager li.next a,
+#od_mapv_pager li.last a,
+#od_mapv_pager li.first a,
+#od_mapv_pager li.previous a {
+  display: block;
+  width: 14px;
+  height: 18px;
+  text-indent: -999em;
+}
+
+#od_mapv_pager li.loading {
+  display: none;
+}
+
+#loading {
+  
+}
+
+/*
+.item-rows .temple-name {
+  width: 230px;
+  height: 70px;
+  line-height: 70px;
+  font-size: 18px;
+}
+
+.item-rows .temple-province {
+  margin-top: 10px;
+}
+
+.item-rows .temple-province,
+.item-rows .temple-contact {
+  width: 210px;
+  height: 30px;
+}
+
+.item-rows .temple-more {
+  width: 20px;
+  height: 60px;
+}
+
+.result-item {
+  background: #E8E8DE;
+  margin-bottom: 3px;
+}*/

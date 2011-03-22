@@ -1,0 +1,6 @@
+; $Id$ od_mapv.info
+name = Thailand map visualization
+description = Display Thailand map visualization via flash and svg with csv file.
+core = 6.x
+version = 6.x-0.1
+
