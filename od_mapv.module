@@ -426,7 +426,7 @@ function _od_mapv_get_map() {
     'od_mapv' => array(
       'path' => base_path() . $mpath,
       'tooltip' => variable_get('od_mapv_text_tooltp', ''),
-      'map_path' => variable_get('od_mapv_map_file_path', OD_MAPV_DEFAULT_MAP_FILE_PATH),
+      'map_path' => url(variable_get('od_mapv_map_file_path', OD_MAPV_DEFAULT_MAP_FILE_PATH), array('absolute' => TRUE)),
     ),
   );
   drupal_add_js($settings, 'setting');
