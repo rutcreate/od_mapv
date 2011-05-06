@@ -6,6 +6,8 @@ define("OD_MAPV_DEFAULT_DISPLAY_WIDTH", 384, TRUE);
 define("OD_MAPV_DEFAULT_DISPLAY_HEIGHT", 683, TRUE);
 define("OD_MAPV_DEFAULT_LINK_PATH", 'od_mapv', TRUE);
 define("OD_MAPV_DEFAULT_FILE_PATH", drupal_get_path('module', 'od_mapv') .'/res/db.csv', TRUE);
+define("OD_MAPV_DEFAULT_MAP_FILE_PATH", drupal_get_path('module', 'od_mapv') .'/res/map.svg', TRUE);
+define("OD_MAPV_DEFAULT_SWF_FILE_PATH", drupal_get_path('module', 'od_mapv') .'/res/map.swf', TRUE);
 
 /**
  * Implementation of hook_menu().
@@ -20,16 +22,40 @@ function od_mapv_menu() {
     'file' => 'od_mapv.admin.inc',
   );
   if ($path = variable_get('od_mapv_link_path', OD_MAPV_DEFAULT_LINK_PATH)) {
+    $sub_path = explode("/", variable_get('od_mapv_link_path', OD_MAPV_DEFAULT_LINK_PATH));
+    $args_idx = count($sub_path) +1;
     $items[$path] = array(
       'title' => t(variable_get('od_mapv_display_title', 'Thailand map visualization')),
       'page callback' => 'od_mapv_display',
       'access arguments' => array('access content'),
       'type' => MENU_CALLBACK,
     );
+
+    $items[$path.'/%'] = array(
+      'title' => t(variable_get('od_mapv_display_title', 'Thailand map visualization')),
+      'page callback' => 'od_mapv_display',
+      'page arguments' => array($args_idx),
+      'access arguments' => array('access content'),
+      'type' => MENU_CALLBACK,
+    );
   }
+  $items['mapv'] = array(
+      'title' => t('Mav Visualization'),
+      'page callback' => 'blank_page',
+      'access arguments' => array('access content'),
+      'type' => MENU_CALLBACK,
+  );
+
   $items['od_mapv/data'] = array(
     'title' => 'JSON data',
     'page callback' => 'od_mapv_data',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['od_mapv/data/%'] = array(
+    'title' => 'JSON data',
+    'page callback' => 'od_mapv_data',
+    'page arguments' => array(2),
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
@@ -43,6 +69,12 @@ function od_mapv_menu() {
 }
 
 /**
+  * Blank page
+  */
+function blank_page() {
+  return '';
+}
+/**
  * Implementation of hook_theme().
  */
 function od_mapv_theme() {
@@ -54,7 +86,7 @@ function od_mapv_theme() {
   );
 }
 
-/** 
+/**
  * Implementation of hook_theme_registry_alter().
  */
 function od_mapv_theme_registry_alter(&$theme_registry) {
@@ -394,6 +426,7 @@ function _od_mapv_get_map() {
     'od_mapv' => array(
       'path' => base_path() . $mpath,
       'tooltip' => variable_get('od_mapv_text_tooltp', ''),
+      'map_path' => variable_get('od_mapv_map_file_path', OD_MAPV_DEFAULT_MAP_FILE_PATH),
     ),
   );
   drupal_add_js($settings, 'setting');
@@ -403,30 +436,30 @@ function _od_mapv_get_map() {
     $output = '<div id="od_mapv_filter">
       <h3>'. $title .'</h3>
       <form onsubmit="return false;">
-        <label>'. t('Region') .'</label>
-        <select id="od_mapv_region"><option value="">'. t('All') .'</option></select>
-        <label class="label_province">'. t('Province') .'</label>
-        <select id="od_mapv_province"><option value="" class="all">'. t('All') .'</option></select>
-        <input type="text" id="od_mapv_search" value="" />
-        <input type="submit" id="od_mapv_submit" value="'. t('Search') .'" />
-        <span id="od_mapv_loading"><img src="'. base_path() . $mpath .'/img/loader.gif'. '" alt="'. t('Loading') .'" /></span>
+      <label>'. t('Region') .'</label>
+      <select id="od_mapv_region"><option value="">'. t('All') .'</option></select>
+      <label class="label_province">'. t('Province') .'</label>
+      <select id="od_mapv_province"><option value="" class="all">'. t('All') .'</option></select>
+      <input type="text" id="od_mapv_search" value="" />
+      <input type="submit" id="od_mapv_submit" value="'. t('Search') .'" />
+      <span id="od_mapv_loading"><img src="'. base_path() . $mpath .'/img/loader.gif'. '" alt="'. t('Loading') .'" /></span>
       </form>
-    </div>';
+      </div>';
   }
   // Map.
+  $output .= '<div id="od_mapv_map-wrapper">';
   if (strpos($_SERVER['HTTP_USER_AGENT'], 'MSIE') !== FALSE) {
     $rand = rand(1, 199) / 100;
-    $map_filepath = $mpath .'/res/map.swf?'. $rand;
+    $map_filepath = url(variable_get('od_mapv_swf_file_path', OD_MAPV_DEFAULT_SWF_FILE_PATH), array('absolute' => TRUE, 'query' => 'r='. $rand));
     $width = variable_get('od_mapv_display_width', OD_MAPV_DEFAULT_DISPLAY_WIDTH);
     $height = variable_get('od_mapv_display_height', OD_MAPV_DEFAULT_DISPLAY_HEIGHT);
     $output .= '<object id="od_mapv_map" type="application/x-shockwave-flash" data="'. $map_filepath .'" width="'. $width .'" height="'. $height .'"><param name="movie" value="'. $map_filepath .'" /><param name="wmode" value="transparent" /></object>';
   }
   else {
-    $output .= '<div id="od_mapv_map-wrapper">';
     $output .= '<div id="od_mapv_map" style="width: '. $width .'px; height: '. $height .'px;"></div>';
-    $output .= '<div id="od_mapv_map-tooltip"><span class="province"></span> <span class="count"></span></div>';
-    $output .= '</div>';
   }
+  $output .= '<div id="od_mapv_map-tooltip"><span class="province"></span>&nbsp;<span class="count"></span></div>';
+  $output .= '</div>';
   // Result.
   $output .= '<div class="right">';
   $output .= '<div id="od_mapv_result"></div>';
@@ -465,5 +498,5 @@ function od_mapv_nodeview($node, $teaser = FALSE, $page = FALSE, $links = TRUE) 
   // Allow modules to modify the fully-built node.
   node_invoke_nodeapi($node, 'alter', $teaser, $page);
 
-  return $node->body; 
+  return $node->body;
 }
