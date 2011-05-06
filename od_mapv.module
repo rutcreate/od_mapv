@@ -94,7 +94,7 @@ function od_mapv_is_allow($name) {
 /**
  * JSON data.
  */
-function od_mapv_data() {
+function od_mapv_data($term_id = null) {
   $filepath = variable_get('od_mapv_file_path', OD_MAPV_DEFAULT_FILE_PATH);
   $type = variable_get('od_mapv_type', '');
   // File not found.
@@ -110,7 +110,12 @@ function od_mapv_data() {
   $number_of_temples = 0;
 
   if ($type) {
-    $rs = db_query("SELECT nid FROM {node} WHERE type = '%s'", $type);
+    if ($term_id == null) {
+      $rs = db_query("SELECT nid FROM {node} WHERE type = '%s'", $type);
+    }
+    else {
+      $rs = db_query("SELECT {node}.nid FROM {node} LEFT JOIN {term_node} on {node}.nid = {term_node}.nid WHERE {node}.type = '%s' AND tid = '%d'", $type, $term_id);
+    }
     while($n = db_fetch_object($rs)) {
       $has_data = TRUE;
       $node = array();
@@ -150,13 +155,13 @@ function od_mapv_data() {
             $has_data = FALSE;
             $regions[$current_region] = array();
             break;
-          }   
+          }
           // Detect row which is a province.
           elseif ($idx == 1 && $col != '') {
             $current_province = trim($col);
             $regions[$current_region][$current_province] = $current_province;
             break;
-          }   
+          }
         }
         // Collect data.
         if ($has_data) {
@@ -171,13 +176,12 @@ function od_mapv_data() {
           );
           $number_of_temples++;
         }
-
         $row++;
       }
       fclose($handle);
     }
   }
-  
+
   // Generate output.
   $output = '';
   switch ($_GET['type']) {
@@ -192,7 +196,7 @@ function od_mapv_data() {
         }
       }
       print json_encode($map);
-    break;
+      break;
     case 'result':
       // Filter regions & province.
       $temples = array();
@@ -203,8 +207,11 @@ function od_mapv_data() {
           $temples = $data[$_GET['region']][$_GET['province']];
         }
         else {
-          foreach ($data[$_GET['region']] as $province => $_temples) {
-            $temples = array_merge($temples, $_temples);
+          // Check appropriate foreach value
+          if (!empty($data[$_GET['region']])) {
+            foreach ($data[$_GET['region']] as $province => $_temples) {
+              $temples = array_merge($temples, $_temples);
+            }
           }
         }
       }
@@ -292,7 +299,7 @@ function od_mapv_data() {
         }
       }
       else {
-        $result .= '<div class="result-not-found">'. t('Not found') .'</div>';
+        $result .= '<div class="result-not-found">'. t('ไม่พบข้อมูล') .'</div>';
       }
       $result .= '<div class="clear"></div>';
       $result .= '</div>';
@@ -331,13 +338,13 @@ function od_mapv_data() {
 
       print json_encode($json);
 
-    break;
+      break;
     case 'regions':
       print json_encode($regions);
-    break;
+      break;
     default:
       print json_encode($data);
-    break;
+      break;
   }
 }
 
