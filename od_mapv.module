@@ -80,6 +80,28 @@ function od_mapv_preprocess_page(&$vars) {
   }
 }
 
+
+/**
+  * Implementation of hook_block
+  */
+function od_mapv_block($op = 'list', $delta = 0, $edit = array()) {
+  $block = array();
+  switch($op) {
+    case 'list':
+      $block[0]['info'] = t('odmapv_block');
+      break;
+    case 'view':
+      switch($delta) {
+        case 0:
+          $block['subject'] = t('od_mapv');
+          $block['content'] = _od_mapv_get_map();
+          break;
+      }
+      break;
+  }
+  return $block;
+}
+
 /**
  * Display map visualization.
  */
