@@ -51,7 +51,7 @@ function od_mapv_settings_form() {
     '#type' => 'textfield',
     '#title' => t('Result'),
     '#description' => t('!search is a text search. !number is number of items found.'),
-    '#default_value' => variable_get('od_mapv_text_result', 'Result in !search found !number')
+    '#default_value' => variable_get('od_mapv_text_result', t('Result in !search found !number'))
   );
   $form['od_mapv_src'] = array(
     '#type' => 'fieldset',
@@ -62,6 +62,16 @@ function od_mapv_settings_form() {
     '#type' => 'textfield',
     '#title' => t('DB csv filepath'),
     '#default_value' => variable_get('od_mapv_file_path', OD_MAPV_DEFAULT_FILE_PATH),
+  );
+  $form['od_mapv_src']['od_mapv_map_file_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Map SVG filepath'),
+    '#default_value' => variable_get('od_mapv_map_file_path', OD_MAPV_DEFAULT_MAP_FILE_PATH),
+  );
+  $form['od_mapv_src']['od_mapv_swf_file_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Map SWF filepath'),
+    '#default_value' => variable_get('od_mapv_swf_file_path', OD_MAPV_DEFAULT_SWF_FILE_PATH),
   );
   $form['od_mapv_src']['od_mapv_type'] = array(
     '#type' => 'select',

@@ -17,10 +17,14 @@ var DataLoader = function(selector) {
   this.current_page = 1;
   this.pagesize = 10;
   this.placeholder = 'Search';
-  
+  var req_data_path = "od_mapv/data";
+  var url_last = window.location.href.split("/").pop();
+  if (isFinite(url_last)) {
+    req_data_path = req_data_path + "/"+  url_last;
+  }
   this.init = function() {
     // Result.
-    jQuery.getJSON(Drupal.settings.basePath + 'od_mapv/data', {'type': 'regions'}, function(result) {
+    jQuery.getJSON(Drupal.settings.basePath + req_data_path, {'type': 'regions'}, function(result) {
       
       // Add region.
       for (var region in result) {
@@ -40,11 +44,12 @@ var DataLoader = function(selector) {
         // If select some region.
         else if (result[this.value] != null) {
           // Populate province from region.
+          /* Rutz multi-line comment.[
           for (var province in result[this.value]) {
             jQuery('<option value="'+ province + '">'+ province + '</option>').appendTo(self.province);
           }
           self.province.show();
-          self.province.siblings('label.label_province').show();
+          self.province.siblings('label.label_province').show();*/
         }
       });
       
@@ -75,7 +80,7 @@ var DataLoader = function(selector) {
     });
     
     // Map data.
-    jQuery.getJSON(Drupal.settings.basePath + 'od_mapv/data', { type: 'map' }, function(result) {
+    jQuery.getJSON(Drupal.settings.basePath + req_data_path, { type: 'map' }, function(result) {
       self.map_data = result;
       
       // Draw map.
@@ -88,7 +93,8 @@ var DataLoader = function(selector) {
   
   this.drawMap = function(svg) {
     // Load map.
-    svg.load(Drupal.settings.od_mapv.path + '/res/map.svg?r='+Math.random(), function() {
+    // svg.load(Drupal.settings.od_mapv.path + '/res/map.svg?r='+Math.random(), function() {
+    svg.load(Drupal.settings.od_mapv.map_path + '?r='+Math.random(), function() {
       jQuery('#od_mapv_map svg path').each(function(i, obj) {
         var $obj = jQuery(obj);
         if (obj.id) {
@@ -122,7 +128,8 @@ var DataLoader = function(selector) {
             // Set select filter.
             self.region.val(region);
             self.region.trigger('change');
-            self.province.val(province);
+            // Rutz. comment the line below.
+            //self.province.val(province);
             // Clear search value.
             self.search.val('');
             // Submit filter
@@ -133,13 +140,13 @@ var DataLoader = function(selector) {
           // MouseEnter event.
           .mouseenter(function(e) {
             self.tooltip.removeClass('north south northeast central unknown').addClass(rclass);
-            $obj.css('opacity', 1.0);
+            $obj.css({'opacity': 1.0, 'cursor': 'pointer'});
             self.setTooltip(region, province);
           })
           // MouseLeave event.
           .mouseleave(function(e) {
             if (obj.id.indexOf('path') == -1) {
-              $obj.css('opacity', 0.5);
+              $obj.css({'opacity': 0.5, 'cursor': 'auto'});
             }
             self.tooltip.hide();
           });
@@ -168,7 +175,7 @@ var DataLoader = function(selector) {
     this.loading.show();
     
     // Begin filter.
-    jQuery.getJSON(Drupal.settings.basePath +'od_mapv/data', params, function(result) {
+    jQuery.getJSON(Drupal.settings.basePath + req_data_path, params, function(result) {
       // Replace HTML.
       self.result.parent().hide();
       self.result.html(result.result);
@@ -229,11 +236,17 @@ var DataLoader = function(selector) {
     if (this.map_data[region][province] != undefined) {
       number = this.map_data[region][province]['count'];
     }
+    else if (this.map_data[region] != undefined) {
+      for (i in this.map_data[region]) {
+        number = number + parseInt(this.map_data[region][i]['count']);
+      }
+    }
     if (typeof(Drupal.settings.od_mapv.tooltip) != 'undefined') {
       number = number + ' ' + Drupal.settings.od_mapv.tooltip;
     }
     this.tooltip
-      .children('.province').html(province).end()
+      // Rutz. change province to region.
+      .children('.province').html(region).end()
       .children('.count').html(number).end()
       .show();
   };
